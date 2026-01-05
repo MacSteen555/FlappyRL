@@ -72,6 +72,57 @@ add_library(render_sdl STATIC
 target_include_directories(render_sdl PUBLIC include/render_sdl)
 target_link_libraries(render_sdl PUBLIC core)
 
+# Find SDL2
+# First, try manual path for MinGW (if user sets SDL2_ROOT or default location)
+set(SDL2_ROOT_PATH "")
+if(DEFINED ENV{SDL2_ROOT})
+    set(SDL2_ROOT_PATH "$ENV{SDL2_ROOT}")
+elseif(EXISTS "C:/dev/SDL2")
+    set(SDL2_ROOT_PATH "C:/dev/SDL2")
+endif()
+
+if(SDL2_ROOT_PATH AND EXISTS "${SDL2_ROOT_PATH}/x86_64-w64-mingw32/include/SDL2/SDL.h")
+    # Include directory should point to the parent of SDL2 subdirectory
+    set(SDL2_INCLUDE_DIR "${SDL2_ROOT_PATH}/x86_64-w64-mingw32/include" CACHE PATH "SDL2 include path")
+    set(SDL2_LIBRARY "${SDL2_ROOT_PATH}/x86_64-w64-mingw32/lib/libSDL2.dll.a" CACHE FILEPATH "SDL2 library")
+    # For console apps, we handle main ourselves (no SDL2main needed)
+    set(SDL2_LIBRARIES ${SDL2_LIBRARY})
+    set(SDL2_INCLUDE_DIRS ${SDL2_INCLUDE_DIR})
+    set(SDL2_FOUND TRUE)
+    message(STATUS "Found SDL2 at: ${SDL2_ROOT_PATH}")
+    message(STATUS "SDL2 include dir: ${SDL2_INCLUDE_DIR}")
+    message(STATUS "SDL2 library: ${SDL2_LIBRARY}")
+    message(STATUS "SDL2main library: ${SDL2_MAIN_LIBRARY}")
+else()
+    find_package(SDL2 QUIET)
+    if(NOT SDL2_FOUND)
+        # Try to find SDL2 via pkg-config (Linux/macOS)
+        find_package(PkgConfig QUIET)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(SDL2 QUIET sdl2)
+        endif()
+    endif()
+endif()
+
+# If SDL2 not found, provide instructions
+if(NOT SDL2_FOUND)
+    message(WARNING "SDL2 not found. Install SDL2 to enable visualization.")
+    message(STATUS "")
+    message(STATUS "For MinGW on Windows:")
+    message(STATUS "  1. Download: https://github.com/libsdl-org/SDL/releases")
+    message(STATUS "  2. Get: SDL2-devel-2.x.x-mingw.tar.gz")
+    message(STATUS "  3. Extract to: C:\\dev\\SDL2 (or any location)")
+    message(STATUS "  4. Set environment variable: SDL2_ROOT=C:\\dev\\SDL2")
+    message(STATUS "  5. Re-run cmake")
+    message(STATUS "")
+    message(STATUS "Or use MSYS2: pacman -S mingw-w64-x86_64-SDL2")
+else()
+    target_link_libraries(render_sdl PUBLIC ${SDL2_LIBRARIES})
+    target_include_directories(render_sdl PUBLIC ${SDL2_INCLUDE_DIRS})
+    target_compile_definitions(render_sdl PUBLIC HAVE_SDL2 SDL_MAIN_HANDLED)
+    message(STATUS "SDL2 found - visualization enabled!")
+endif()
+
 # ============================================================================
 # Executables
 # ============================================================================
