@@ -81,16 +81,36 @@ void Renderer::poll_events() {
             // Handle quit in should_close()
         }
     }
+    // Update keyboard state
+    keyboard_state_ = SDL_GetKeyboardState(nullptr);
 #endif
 }
 
 bool Renderer::should_close() const {
 #ifdef HAVE_SDL2
     SDL_Event e;
-    return SDL_PeepEvents(&e, 1, SDL_PEEKEVENT, SDL_QUIT, SDL_QUIT) > 0;
+    if (SDL_PeepEvents(&e, 1, SDL_PEEKEVENT, SDL_QUIT, SDL_QUIT) > 0) {
+        return true;
+    }
+    // Also check for ESC or Q key
+    if (keyboard_state_) {
+        if (keyboard_state_[SDL_SCANCODE_ESCAPE] || keyboard_state_[SDL_SCANCODE_Q]) {
+            return true;
+        }
+    }
+    return false;
 #else
     return false;
 #endif
+}
+
+bool Renderer::is_key_pressed(int key_code) const {
+#ifdef HAVE_SDL2
+    if (keyboard_state_) {
+        return keyboard_state_[key_code] != 0;
+    }
+#endif
+    return false;
 }
 
 int Renderer::world_to_screen_x(float world_x) const {

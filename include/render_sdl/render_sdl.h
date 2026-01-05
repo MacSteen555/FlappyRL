@@ -34,6 +34,14 @@ public:
     
     bool should_close() const;
     void poll_events();
+    
+    // Check if a key is currently pressed
+    bool is_key_pressed(int key_code) const;
+    
+    // Key codes (SDL scancodes)
+    static constexpr int KEY_SPACE = 44;
+    static constexpr int KEY_ESCAPE = 41;
+    static constexpr int KEY_Q = 20;
 
     bool is_initialized() const { return initialized_; }
 
@@ -44,6 +52,7 @@ private:
 #ifdef HAVE_SDL2
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
+    const Uint8* keyboard_state_ = nullptr;
 #endif
 
     void render_bird(float y, float vy);

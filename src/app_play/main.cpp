@@ -5,6 +5,10 @@
 #include <chrono>
 #include <thread>
 
+#ifdef HAVE_SDL2
+#include <SDL2/SDL.h>
+#endif
+
 int main() {
     std::cout << "FlappyRL - Play Application" << std::endl;
     
@@ -39,11 +43,18 @@ int main() {
             break;
         }
         
-        // Simple input handling (you can improve this with SDL keyboard events)
-        // For now, just step with NO_FLAP - you can add keyboard input later
+        // Keyboard input handling
+        env_flappy::Action action = env_flappy::Action::NO_FLAP;
         
-        // Step environment
-        env_flappy::StepResult result = env.step(env_flappy::Action::NO_FLAP);
+#ifdef HAVE_SDL2
+        // Check if SPACE is pressed to flap
+        if (renderer.is_key_pressed(SDL_SCANCODE_SPACE)) {
+            action = env_flappy::Action::FLAP;
+        }
+#endif
+        
+        // Step environment with the chosen action
+        env_flappy::StepResult result = env.step(action);
         
         // Render
         renderer.render(env);

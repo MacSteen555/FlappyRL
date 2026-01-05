@@ -138,6 +138,10 @@ add_executable(app_play
     src/app_play/main.cpp
 )
 target_link_libraries(app_play PRIVATE env_flappy render_sdl core)
+if(SDL2_FOUND)
+    target_include_directories(app_play PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_compile_definitions(app_play PRIVATE HAVE_SDL2)
+endif()
 
 # ============================================================================
 # Unit Testing (Catch2)
