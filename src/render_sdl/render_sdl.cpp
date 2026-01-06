@@ -1,6 +1,7 @@
 #include "render_sdl/render_sdl.h"
 #include <iostream>
 #include <cmath>
+#include <cstring>
 
 #ifdef HAVE_SDL2
 #include <SDL2/SDL.h>
@@ -50,6 +51,13 @@ bool Renderer::initialize(const RenderConfig& config) {
     config_.scale_x = static_cast<float>(config.window_width) * 0.8f;  // Use 80% width
     config_.scale_y = static_cast<float>(config.window_height);  // Full height for world
     
+    // Allocate memory for previous keyboard state
+    keyboard_state_ = SDL_GetKeyboardState(&num_keys_);
+    if (num_keys_ > 0) {
+        previous_keyboard_state_ = new Uint8[num_keys_];
+        std::memset(previous_keyboard_state_, 0, num_keys_);
+    }
+    
     initialized_ = true;
     return true;
 #else
@@ -60,6 +68,10 @@ bool Renderer::initialize(const RenderConfig& config) {
 
 void Renderer::shutdown() {
 #ifdef HAVE_SDL2
+    if (previous_keyboard_state_) {
+        delete[] previous_keyboard_state_;
+        previous_keyboard_state_ = nullptr;
+    }
     if (renderer_) {
         SDL_DestroyRenderer(renderer_);
         renderer_ = nullptr;
@@ -75,6 +87,11 @@ void Renderer::shutdown() {
 
 void Renderer::poll_events() {
 #ifdef HAVE_SDL2
+    // Save previous keyboard state
+    if (previous_keyboard_state_ && keyboard_state_) {
+        std::memcpy(previous_keyboard_state_, keyboard_state_, num_keys_);
+    }
+    
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
@@ -108,6 +125,16 @@ bool Renderer::is_key_pressed(int key_code) const {
 #ifdef HAVE_SDL2
     if (keyboard_state_) {
         return keyboard_state_[key_code] != 0;
+    }
+#endif
+    return false;
+}
+
+bool Renderer::is_key_just_pressed(int key_code) const {
+#ifdef HAVE_SDL2
+    if (keyboard_state_ && previous_keyboard_state_) {
+        // Key is pressed now but wasn't pressed before
+        return keyboard_state_[key_code] != 0 && previous_keyboard_state_[key_code] == 0;
     }
 #endif
     return false;
@@ -172,7 +199,7 @@ void Renderer::render_bird(float y, float vy) {
 #endif
 }
 
-void Renderer::render_pipe(float x, float gap_y, float pipe_width, float pipe_gap, float world_height) {
+void Renderer::render_pipe(float x, float gap_y, float pipe_width, float pipe_gap, float /* world_height */) {
 #ifdef HAVE_SDL2
     int pipe_screen_x = world_to_screen_x(x);
     int pipe_screen_width = static_cast<int>(pipe_width * config_.scale_x);

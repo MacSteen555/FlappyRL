@@ -36,8 +36,9 @@ namespace env_flappy {
 
         // Physics
         float gravity      = -2.0f;    // downward accel (neg)
-        float flap_impulse =  0.70f;   // instantaneous vy += impulse
+        float flap_impulse =  0.60f;   // instantaneous vy += impulse (balanced value)
         float term_vy      = -3.0f;    // clamp max downward speed
+        float max_vy        =  2.5f;   // clamp max upward speed (increased slightly)
 
         // Rewards
         float r_pass  =  1.0f;         // crossing pipe centerline

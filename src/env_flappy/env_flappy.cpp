@@ -131,10 +131,13 @@ StepResult FlappyEnv::step(Action action) {
         vy_ += config_.flap_impulse;
     }
 
-    // 2) Physics: Apply gravity and terminal velocity
+    // 2) Physics: Apply gravity and clamp velocity
     vy_ += config_.gravity * config_.dt;
     if (vy_ < config_.term_vy) {
         vy_ = config_.term_vy;
+    }
+    if (vy_ > config_.max_vy) {
+        vy_ = config_.max_vy;
     }
 
     // Update bird position

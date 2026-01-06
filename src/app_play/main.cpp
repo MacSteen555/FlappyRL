@@ -23,17 +23,40 @@ int main() {
     
     // Create environment
     env_flappy::FlappyEnv env(12345);
-    env_flappy::Observation obs = env.reset(12345);
+    env.reset(12345);  // Initialize environment
     
     std::cout << "Controls:" << std::endl;
-    std::cout << "  SPACE - Flap" << std::endl;
+    std::cout << "  SPACE - Flap (tap, don't hold)" << std::endl;
+    std::cout << "  R - Restart after game over" << std::endl;
     std::cout << "  ESC/Q - Quit" << std::endl;
     
     const float target_fps = 60.0f;
     const auto frame_time = std::chrono::milliseconds(static_cast<int>(1000.0f / target_fps));
     
     bool running = true;
-    while (running && !env.done()) {
+    while (running) {
+        // Continue running even after episode ends (can restart with R key)
+        if (env.done()) {
+            // Show game over state
+            renderer.render(env);
+            
+            // Check for restart (R key) or quit
+            renderer.poll_events();
+#ifdef HAVE_SDL2
+            if (renderer.is_key_just_pressed(SDL_SCANCODE_R)) {
+                // Restart episode
+                env.reset(12345);
+            }
+#endif
+            if (renderer.should_close()) {
+                running = false;
+                break;
+            }
+            
+            // Small delay to prevent 100% CPU usage
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+            continue;
+        }
         auto frame_start = std::chrono::steady_clock::now();
         
         // Poll events
@@ -43,12 +66,12 @@ int main() {
             break;
         }
         
-        // Keyboard input handling
+        // Keyboard input handling - only flap on key press, not while held
         env_flappy::Action action = env_flappy::Action::NO_FLAP;
         
 #ifdef HAVE_SDL2
-        // Check if SPACE is pressed to flap
-        if (renderer.is_key_pressed(SDL_SCANCODE_SPACE)) {
+        // Check if SPACE was just pressed (not held) to flap
+        if (renderer.is_key_just_pressed(SDL_SCANCODE_SPACE)) {
             action = env_flappy::Action::FLAP;
         }
 #endif

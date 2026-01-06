@@ -35,8 +35,11 @@ public:
     bool should_close() const;
     void poll_events();
     
-    // Check if a key is currently pressed
+    // Check if a key is currently pressed (held down)
     bool is_key_pressed(int key_code) const;
+    
+    // Check if a key was just pressed this frame (not held)
+    bool is_key_just_pressed(int key_code) const;
     
     // Key codes (SDL scancodes)
     static constexpr int KEY_SPACE = 44;
@@ -53,6 +56,8 @@ private:
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
     const Uint8* keyboard_state_ = nullptr;
+    Uint8* previous_keyboard_state_ = nullptr;
+    int num_keys_ = 0;
 #endif
 
     void render_bird(float y, float vy);
