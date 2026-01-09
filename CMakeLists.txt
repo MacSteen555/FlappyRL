@@ -61,6 +61,10 @@ target_link_libraries(env_flappy PUBLIC core)
 # DQN Reinforcement Learning library
 add_library(rl_dqn STATIC
     src/rl_dqn/rl_dqn.cpp
+    src/rl_dqn/network.cpp
+    src/rl_dqn/replay_buffer.cpp
+    src/rl_dqn/adam.cpp
+    src/rl_dqn/dqn_agent.cpp
 )
 target_include_directories(rl_dqn PUBLIC include/rl_dqn)
 target_link_libraries(rl_dqn PUBLIC core)
@@ -165,6 +169,11 @@ if(BUILD_TESTING)
     # Example test file structure
     file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
     if(TEST_SOURCES)
+        add_executable(${PROJECT_NAME}_tests ${TEST_SOURCES})
+        target_link_libraries(${PROJECT_NAME}_tests PRIVATE 
+            env_flappy rl_dqn core Catch2::Catch2)
+        # Ensure it's a console application (not GUI)
+        set_target_properties(${PROJECT_NAME}_tests PROPERTIES WIN32_EXECUTABLE FALSE)
         catch_discover_tests(${PROJECT_NAME}_tests)
     endif()
 endif()
