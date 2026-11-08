@@ -1,6 +1,5 @@
 #include "rl_dqn/replay_buffer.h"
 #include <algorithm>
-#include <numeric>
 #include <stdexcept>
 
 namespace rl_dqn {
@@ -28,14 +27,10 @@ std::vector<Experience> ReplayBuffer::sample(std::size_t batch_size) const {
     std::vector<Experience> batch;
     batch.reserve(batch_size);
     
-    // Sample random indices without replacement
-    std::vector<std::size_t> indices(experiences_.size());
-    std::iota(indices.begin(), indices.end(), 0);
-    
-    std::shuffle(indices.begin(), indices.end(), rng_);
-    
+    // Uniform sampling with replacement (standard for DQN)
+    std::uniform_int_distribution<std::size_t> pick(0, experiences_.size() - 1);
     for (std::size_t i = 0; i < batch_size; ++i) {
-        batch.push_back(experiences_[indices[i]]);
+        batch.push_back(experiences_[pick(rng_)]);
     }
     
     return batch;
@@ -47,6 +42,7 @@ bool ReplayBuffer::can_sample(std::size_t batch_size) const {
 
 void ReplayBuffer::clear() {
     experiences_.clear();
+    write_index_ = 0;
 }
 
 } // namespace rl_dqn

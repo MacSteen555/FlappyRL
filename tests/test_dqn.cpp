@@ -129,3 +129,59 @@ TEST_CASE("Replay Buffer", "[dqn]") {
     REQUIRE(batch.size() == 5);
 }
 
+
+namespace {
+env_flappy::Observation make_obs(float y, float vy, float dx, float dy) {
+    env_flappy::Observation o;
+    o.y = y; o.vy = vy; o.dx_to_pipe = dx; o.dy_to_gap = dy;
+    return o;
+}
+} // namespace
+
+TEST_CASE("Target network sync copies weights AND biases", "[dqn]") {
+    rl_dqn::DQNConfig config;
+    config.layer_sizes = {4, 16, 2};
+    config.batch_size = 8;
+    config.learning_rate = 1e-2f;
+    config.target_update_frequency = 0;  // manual sync only
+
+    rl_dqn::DQNAgent agent(config);
+    auto s = make_obs(0.5f, 0.0f, 0.5f, 0.1f);
+    for (int i = 0; i < 64; ++i) {
+        agent.store_experience(s, env_flappy::Action::FLAP, 5.0f, s, true);
+    }
+    for (int i = 0; i < 50; ++i) (void)agent.train();  // biases now non-zero
+
+    agent.update_target_network();
+    auto q = agent.get_q_values(s);
+    auto tq = agent.get_target_q_values(s);
+    REQUIRE(q[0] == tq[0]);
+    REQUIRE(q[1] == tq[1]);
+}
+
+TEST_CASE("Agent learns terminal reward and bootstrapped value", "[dqn]") {
+    // State A --FLAP--> terminal, reward -1    => Q(A, FLAP)    -> -1
+    // State B --NO_FLAP--> B, reward 1, gamma  => Q(B, NO_FLAP) -> 1 / (1 - gamma)
+    rl_dqn::DQNConfig config;
+    config.layer_sizes = {4, 32, 32, 2};
+    config.batch_size = 32;
+    config.replay_buffer_size = 1000;
+    config.learning_rate = 1e-3f;
+    config.gamma = 0.5f;
+    config.target_update_frequency = 50;
+
+    rl_dqn::DQNAgent agent(config);
+    auto a = make_obs(0.2f, -1.0f, 0.8f, 0.3f);
+    auto b = make_obs(0.7f, 1.0f, 0.1f, -0.2f);
+    for (int i = 0; i < 200; ++i) {
+        agent.store_experience(a, env_flappy::Action::FLAP, -1.0f, a, true);
+        agent.store_experience(b, env_flappy::Action::NO_FLAP, 1.0f, b, false);
+    }
+    for (int i = 0; i < 3000; ++i) (void)agent.train();
+
+    auto qa = agent.get_q_values(a);
+    auto qb = agent.get_q_values(b);
+    INFO("Q(A,FLAP)=" << qa[1] << " Q(B,NO_FLAP)=" << qb[0]);
+    REQUIRE(std::fabs(qa[1] - (-1.0f)) < 0.1f);
+    REQUIRE(std::fabs(qb[0] - 2.0f) < 0.2f);
+}

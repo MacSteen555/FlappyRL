@@ -7,6 +7,8 @@
 #include "env_flappy/env_flappy.h"
 #include <cstdint>
 #include <cstddef>
+#include <random>
+#include <string>
 
 namespace rl_dqn {
 
@@ -27,8 +29,12 @@ struct DQNConfig {
     std::size_t batch_size = 32;
     
     // Training schedule
-    int train_frequency = 4;  // train every N steps
-    int target_update_frequency = 100;  // update target network every N steps
+    int train_frequency = 4;  // train every N env steps (used by the training loop)
+    int target_update_frequency = 100;  // sync target network every N train() calls
+
+    // Loss / target
+    float huber_delta = 1.0f;  // TD errors beyond this get a linear (clipped) gradient
+    bool double_dqn = true;    // choose a' with main net, evaluate it with target net
     
     // Adam optimizer
     float adam_beta1 = 0.9f;
@@ -65,6 +71,7 @@ public:
     
     // Get Q-values for a state (for debugging)
     std::vector<float> get_q_values(const env_flappy::Observation& state) const;
+    std::vector<float> get_target_q_values(const env_flappy::Observation& state) const;
     
     // Save/load network weights (for model persistence)
     void save_weights(const std::string& filepath) const;
@@ -91,6 +98,7 @@ private:
     int total_steps_;
     int training_steps_;
     float current_epsilon_;
+    std::mt19937 rng_;  // exploration RNG (seeded once, not per call)
     
     // Convert observation to network input
     std::vector<float> observation_to_input(const env_flappy::Observation& obs) const;
