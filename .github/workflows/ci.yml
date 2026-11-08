@@ -28,7 +28,7 @@ jobs:
       - name: Test
         run: |
           cd build
-          ctest --output-on-failure || true
+          ctest --output-on-failure
       
       - name: Configure CMake (Release)
         run: |
@@ -58,7 +58,7 @@ jobs:
       - name: Test
         run: |
           cd build
-          ctest --output-on-failure || true
+          ctest --output-on-failure
       
       - name: Configure CMake (Release)
         run: |

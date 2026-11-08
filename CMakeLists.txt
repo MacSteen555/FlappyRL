@@ -21,15 +21,23 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Release configuration: -O3 optimization
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
+# Release configuration: -O3 optimization (GCC/Clang only; MSVC keeps its defaults)
+if(NOT MSVC)
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+endif()
 
-# Debug configuration: AddressSanitizer and UndefinedBehaviorSanitizer
-set(CMAKE_CXX_FLAGS_DEBUG "-g -fsanitize=address,undefined -fno-omit-frame-pointer")
-set(CMAKE_C_FLAGS_DEBUG "-g -fsanitize=address,undefined -fno-omit-frame-pointer")
-set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address,undefined")
-set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address,undefined")
+# Debug configuration: AddressSanitizer + UBSan where the toolchain supports it.
+# MinGW does not ship the sanitizer runtimes, so enabling them there breaks the link.
+if(NOT MSVC AND NOT MINGW)
+    option(FLAPPY_SANITIZE "Enable ASan/UBSan in Debug builds" ON)
+else()
+    option(FLAPPY_SANITIZE "Enable ASan/UBSan in Debug builds" OFF)
+endif()
+if(FLAPPY_SANITIZE)
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -fsanitize=address,undefined -fno-omit-frame-pointer")
+    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-fsanitize=address,undefined")
+    set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "-fsanitize=address,undefined")
+endif()
 
 # Compiler-specific options
 if(MSVC)
@@ -67,14 +75,15 @@ add_library(rl_dqn STATIC
     src/rl_dqn/dqn_agent.cpp
 )
 target_include_directories(rl_dqn PUBLIC include/rl_dqn)
-target_link_libraries(rl_dqn PUBLIC core)
+# The agent's API is expressed in env_flappy types (Observation/Action)
+target_link_libraries(rl_dqn PUBLIC core env_flappy)
 
 # SDL Rendering library
 add_library(render_sdl STATIC
     src/render_sdl/render_sdl.cpp
 )
 target_include_directories(render_sdl PUBLIC include/render_sdl)
-target_link_libraries(render_sdl PUBLIC core)
+target_link_libraries(render_sdl PUBLIC core env_flappy)
 
 # Find SDL2
 # First, try manual path for MinGW (if user sets SDL2_ROOT or default location)
@@ -151,7 +160,7 @@ endif()
 # Unit Testing (Catch2)
 # ============================================================================
 
-option(BUILD_TESTING ON)
+option(BUILD_TESTING "Build the unit tests" ON)
 if(BUILD_TESTING)
     include(FetchContent)
     FetchContent_Declare(
@@ -171,7 +180,8 @@ if(BUILD_TESTING)
     if(TEST_SOURCES)
         add_executable(${PROJECT_NAME}_tests ${TEST_SOURCES})
         target_link_libraries(${PROJECT_NAME}_tests PRIVATE 
-            env_flappy rl_dqn core Catch2::Catch2)
+            env_flappy rl_dqn core Catch2::Catch2WithMain)
+        target_compile_definitions(${PROJECT_NAME}_tests PRIVATE FLAPPY_ENV_TESTING)
         # Ensure it's a console application (not GUI)
         set_target_properties(${PROJECT_NAME}_tests PROPERTIES WIN32_EXECUTABLE FALSE)
         catch_discover_tests(${PROJECT_NAME}_tests)
