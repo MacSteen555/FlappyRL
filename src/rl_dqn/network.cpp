@@ -172,19 +172,20 @@ void Network::backward(const std::vector<float>& input,
             }
         }
         
-        // Propagate error to previous layer (if not input layer)
+        // Propagate error to previous layer (if not input layer).
+        // delta_prev[j] = (sum_i W[i][j] * delta[i]) * relu'(z_prev[j])
+        // Every layer below the output is a hidden ReLU layer, so the derivative
+        // always applies, and it is indexed by the *previous* layer's neuron j.
         if (layer > 0) {
             std::vector<float> prev_delta(prev_activation.size(), 0.0f);
-            // pre_activations[layer-1] contains the pre-activation for the previous layer
             const std::vector<float>& prev_pre_activation = pre_activations[layer - 1];
             for (size_t i = 0; i < weights_[layer].size(); ++i) {
-                // Apply ReLU derivative using pre-activation value
-                // For hidden layers, use ReLU derivative; for output layer, derivative is 1.0
-                float relu_deriv = (layer < weights_.size() - 1) ? 
-                    relu_derivative(prev_pre_activation[i]) : 1.0f;
                 for (size_t j = 0; j < weights_[layer][i].size(); ++j) {
-                    prev_delta[j] += weights_[layer][i][j] * delta[i] * relu_deriv;
+                    prev_delta[j] += weights_[layer][i][j] * delta[i];
                 }
+            }
+            for (size_t j = 0; j < prev_delta.size(); ++j) {
+                prev_delta[j] *= relu_derivative(prev_pre_activation[j]);
             }
             delta = prev_delta;
         }
