@@ -24,7 +24,11 @@ DQNAgent::DQNAgent(const DQNConfig& config)
 }
 
 std::vector<float> DQNAgent::observation_to_input(const env_flappy::Observation& obs) const {
-    return {obs.y, obs.vy, obs.dx_to_pipe, obs.dy_to_gap};
+    // Rescale each feature to roughly [-1, 1] so no input dominates early training
+    return {obs.y * 2.0f - 1.0f,
+            obs.vy / 2.5f,
+            obs.dx_to_pipe * 2.0f - 0.5f,
+            obs.dy_to_gap * 2.0f};
 }
 
 static int argmax2(const std::vector<float>& q) { return q[1] > q[0] ? 1 : 0; }
@@ -46,8 +50,13 @@ env_flappy::Action DQNAgent::select_action(const env_flappy::Observation& state)
 
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
     if (dist(rng_) < current_epsilon_) {
-        return dist(rng_) < 0.5f ? env_flappy::Action::NO_FLAP : env_flappy::Action::FLAP;
+        return dist(rng_) < config_.explore_flap_prob ? env_flappy::Action::FLAP
+                                                       : env_flappy::Action::NO_FLAP;
     }
+    return greedy_action(state);
+}
+
+env_flappy::Action DQNAgent::greedy_action(const env_flappy::Observation& state) const {
     return index_to_action(argmax2(main_network_.forward(observation_to_input(state))));
 }
 

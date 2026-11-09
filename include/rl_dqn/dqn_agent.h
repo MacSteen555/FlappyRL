@@ -23,6 +23,8 @@ struct DQNConfig {
     float epsilon_start = 1.0f;
     float epsilon_end = 0.01f;
     int epsilon_decay_steps = 10000;
+    // Probability a *random* exploratory action is FLAP
+    float explore_flap_prob = 0.1f;
     
     // Replay buffer
     std::size_t replay_buffer_size = 10000;
@@ -53,6 +55,9 @@ public:
     // Select action using epsilon-greedy policy
     env_flappy::Action select_action(const env_flappy::Observation& state);
     
+    // Greedy action (no exploration, no step counting) for evaluation/playback
+    env_flappy::Action greedy_action(const env_flappy::Observation& state) const;
+
     // Store experience in replay buffer
     void store_experience(const env_flappy::Observation& state,
                          env_flappy::Action action,
