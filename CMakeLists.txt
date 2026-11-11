@@ -150,10 +150,16 @@ target_link_libraries(app_train PRIVATE env_flappy rl_dqn core)
 add_executable(app_play
     src/app_play/main.cpp
 )
-target_link_libraries(app_play PRIVATE env_flappy render_sdl core)
+target_link_libraries(app_play PRIVATE env_flappy rl_dqn render_sdl core)
 if(SDL2_FOUND)
     target_include_directories(app_play PRIVATE ${SDL2_INCLUDE_DIRS})
     target_compile_definitions(app_play PRIVATE HAVE_SDL2)
+    # Windows: put SDL2.dll next to the exe so it runs without editing PATH
+    set(SDL2_DLL "${SDL2_ROOT_PATH}/x86_64-w64-mingw32/bin/SDL2.dll")
+    if(WIN32 AND SDL2_ROOT_PATH AND EXISTS "${SDL2_DLL}")
+        add_custom_command(TARGET app_play POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SDL2_DLL}" $<TARGET_FILE_DIR:app_play>)
+    endif()
 endif()
 
 # ============================================================================

@@ -2,6 +2,7 @@
 #include "rl_dqn/dqn_agent.h"
 #include "env_flappy/env_flappy.h"
 #include <cmath>
+#include <filesystem>
 
 TEST_CASE("DQN Network Forward Pass", "[dqn]") {
     rl_dqn::Network network({4, 8, 2}, 12345);
@@ -184,4 +185,34 @@ TEST_CASE("Agent learns terminal reward and bootstrapped value", "[dqn]") {
     INFO("Q(A,FLAP)=" << qa[1] << " Q(B,NO_FLAP)=" << qb[0]);
     REQUIRE(std::fabs(qa[1] - (-1.0f)) < 0.1f);
     REQUIRE(std::fabs(qb[0] - 2.0f) < 0.2f);
+}
+
+TEST_CASE("Checkpoint save/load round-trips Q-values", "[dqn]") {
+    namespace fs = std::filesystem;
+    const fs::path path = fs::temp_directory_path() / "flappyrl_test_ckpt.bin";
+
+    rl_dqn::DQNConfig config;
+    config.layer_sizes = {4, 12, 7, 2};
+    config.seed = 42;
+    rl_dqn::DQNAgent original(config);
+    original.save_weights(path.string());
+
+    // Different seed and architecture in the config: the file must win.
+    rl_dqn::DQNConfig other;
+    other.layer_sizes = {4, 32, 2};
+    other.seed = 7;
+    rl_dqn::DQNAgent loaded(other);
+    loaded.load_weights(path.string());
+
+    auto s = make_obs(0.3f, -0.4f, 0.5f, 0.2f);
+    auto a = original.get_q_values(s);
+    auto b = loaded.get_q_values(s);
+    REQUIRE(a == b);
+    REQUIRE(loaded.get_target_q_values(s) == b);
+
+    // Truncated file is rejected rather than silently half-loaded
+    fs::resize_file(path, fs::file_size(path) - 4);
+    REQUIRE_THROWS(loaded.load_weights(path.string()));
+    REQUIRE_THROWS(loaded.load_weights((fs::temp_directory_path() / "does_not_exist.bin").string()));
+    fs::remove(path);
 }

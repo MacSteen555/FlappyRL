@@ -3,7 +3,7 @@
 #include <cmath>
 #include <random>
 #include <fstream>
-#include <sstream>
+#include <cstdint>
 #include <stdexcept>
 
 namespace rl_dqn {
@@ -194,14 +194,93 @@ std::vector<float> DQNAgent::get_target_q_values(const env_flappy::Observation& 
     return target_network_.forward(observation_to_input(state));
 }
 
+// Checkpoint format (little-endian, as written by this machine):
+//   char[4]  magic "FRL1"
+//   uint32   number of layer sizes N
+//   int32[N] layer sizes
+//   float[]  for each layer: weights (row-major [out][in]) then biases
+namespace {
+constexpr char kMagic[4] = {'F', 'R', 'L', '1'};
+
+template <typename T>
+void write_pod(std::ostream& out, const T& v) {
+    out.write(reinterpret_cast<const char*>(&v), sizeof(T));
+}
+
+template <typename T>
+T read_pod(std::istream& in) {
+    T v{};
+    in.read(reinterpret_cast<char*>(&v), sizeof(T));
+    if (!in) throw std::runtime_error("Checkpoint is truncated");
+    return v;
+}
+} // namespace
+
 void DQNAgent::save_weights(const std::string& filepath) const {
-    // TODO: Implement weight serialization
-    (void)filepath;  // Suppress unused parameter warning
+    std::ofstream out(filepath, std::ios::binary | std::ios::trunc);
+    if (!out) throw std::runtime_error("Cannot open checkpoint for writing: " + filepath);
+
+    const auto& sizes = main_network_.get_layer_sizes();
+    out.write(kMagic, sizeof(kMagic));
+    write_pod(out, static_cast<std::uint32_t>(sizes.size()));
+    for (int n : sizes) write_pod(out, static_cast<std::int32_t>(n));
+
+    const auto weights = main_network_.get_weights();
+    const auto biases = main_network_.get_biases();
+    for (size_t l = 0; l < weights.size(); ++l) {
+        for (const auto& row : weights[l]) {
+            out.write(reinterpret_cast<const char*>(row.data()),
+                      static_cast<std::streamsize>(row.size() * sizeof(float)));
+        }
+        out.write(reinterpret_cast<const char*>(biases[l].data()),
+                  static_cast<std::streamsize>(biases[l].size() * sizeof(float)));
+    }
+    if (!out) throw std::runtime_error("Failed writing checkpoint: " + filepath);
 }
 
 void DQNAgent::load_weights(const std::string& filepath) {
-    // TODO: Implement weight deserialization
-    (void)filepath;  // Suppress unused parameter warning
+    std::ifstream in(filepath, std::ios::binary);
+    if (!in) throw std::runtime_error("Cannot open checkpoint: " + filepath);
+
+    char magic[4] = {};
+    in.read(magic, sizeof(magic));
+    if (!in || !std::equal(magic, magic + 4, kMagic)) {
+        throw std::runtime_error("Not a FlappyRL checkpoint: " + filepath);
+    }
+
+    auto n_layers = read_pod<std::uint32_t>(in);
+    if (n_layers < 2 || n_layers > 64) throw std::runtime_error("Corrupt checkpoint header");
+    std::vector<int> sizes(n_layers);
+    for (auto& n : sizes) {
+        n = read_pod<std::int32_t>(in);
+        if (n <= 0 || n > 1 << 16) throw std::runtime_error("Corrupt checkpoint header");
+    }
+    if (sizes.front() != 4 || sizes.back() != 2) {
+        throw std::runtime_error("Checkpoint network must map 4 inputs to 2 actions");
+    }
+
+    // The file's architecture wins over the config's
+    Network net(sizes, config_.seed);
+    auto weights = net.get_weights();
+    auto biases = net.get_biases();
+    for (size_t l = 0; l < weights.size(); ++l) {
+        for (auto& row : weights[l]) {
+            in.read(reinterpret_cast<char*>(row.data()),
+                    static_cast<std::streamsize>(row.size() * sizeof(float)));
+        }
+        in.read(reinterpret_cast<char*>(biases[l].data()),
+                static_cast<std::streamsize>(biases[l].size() * sizeof(float)));
+    }
+    if (!in) throw std::runtime_error("Checkpoint is truncated: " + filepath);
+    in.peek();
+    if (!in.eof()) throw std::runtime_error("Checkpoint has trailing data: " + filepath);
+
+    net.set_weights(weights);
+    net.set_biases(biases);
+    config_.layer_sizes = sizes;
+    main_network_ = net;
+    target_network_ = net;
+    optimizer_.reset();  // moment estimates belong to the old parameters
 }
 
 } // namespace rl_dqn

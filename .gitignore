@@ -48,3 +48,6 @@ lib/
 *.swp
 *.swo
 *~
+
+# Trained checkpoints
+models/
