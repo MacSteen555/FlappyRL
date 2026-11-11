@@ -53,22 +53,14 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Libraries
 # ============================================================================
 
-# Core library (foundational utilities)
-add_library(core STATIC
-    src/core/core.cpp
-)
-target_include_directories(core PUBLIC include/core)
-
 # Environment Flappy library
 add_library(env_flappy STATIC
     src/env_flappy/env_flappy.cpp
 )
 target_include_directories(env_flappy PUBLIC include/env_flappy)
-target_link_libraries(env_flappy PUBLIC core)
 
 # DQN Reinforcement Learning library
 add_library(rl_dqn STATIC
-    src/rl_dqn/rl_dqn.cpp
     src/rl_dqn/network.cpp
     src/rl_dqn/replay_buffer.cpp
     src/rl_dqn/adam.cpp
@@ -76,14 +68,14 @@ add_library(rl_dqn STATIC
 )
 target_include_directories(rl_dqn PUBLIC include/rl_dqn)
 # The agent's API is expressed in env_flappy types (Observation/Action)
-target_link_libraries(rl_dqn PUBLIC core env_flappy)
+target_link_libraries(rl_dqn PUBLIC env_flappy)
 
 # SDL Rendering library
 add_library(render_sdl STATIC
     src/render_sdl/render_sdl.cpp
 )
 target_include_directories(render_sdl PUBLIC include/render_sdl)
-target_link_libraries(render_sdl PUBLIC core env_flappy)
+target_link_libraries(render_sdl PUBLIC env_flappy)
 
 # Find SDL2
 # First, try manual path for MinGW (if user sets SDL2_ROOT or default location)
@@ -144,13 +136,13 @@ endif()
 add_executable(app_train
     src/app_train/main.cpp
 )
-target_link_libraries(app_train PRIVATE env_flappy rl_dqn core)
+target_link_libraries(app_train PRIVATE env_flappy rl_dqn)
 
 # Play application
 add_executable(app_play
     src/app_play/main.cpp
 )
-target_link_libraries(app_play PRIVATE env_flappy rl_dqn render_sdl core)
+target_link_libraries(app_play PRIVATE env_flappy rl_dqn render_sdl)
 if(SDL2_FOUND)
     target_include_directories(app_play PRIVATE ${SDL2_INCLUDE_DIRS})
     target_compile_definitions(app_play PRIVATE HAVE_SDL2)
@@ -186,7 +178,7 @@ if(BUILD_TESTING)
     if(TEST_SOURCES)
         add_executable(${PROJECT_NAME}_tests ${TEST_SOURCES})
         target_link_libraries(${PROJECT_NAME}_tests PRIVATE 
-            env_flappy rl_dqn core Catch2::Catch2WithMain)
+            env_flappy rl_dqn Catch2::Catch2WithMain)
         target_compile_definitions(${PROJECT_NAME}_tests PRIVATE FLAPPY_ENV_TESTING)
         # Ensure it's a console application (not GUI)
         set_target_properties(${PROJECT_NAME}_tests PROPERTIES WIN32_EXECUTABLE FALSE)
@@ -198,7 +190,7 @@ endif()
 # Installation
 # ============================================================================
 
-install(TARGETS core env_flappy rl_dqn render_sdl app_train app_play
+install(TARGETS env_flappy rl_dqn render_sdl app_train app_play
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib

@@ -1,7 +1,6 @@
 #include "env_flappy/env_flappy.h"
 #include "render_sdl/render_sdl.h"
 #include "rl_dqn/dqn_agent.h"
-#include "core/core.h"
 
 #include <chrono>
 #include <cstdint>
@@ -37,7 +36,6 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "FlappyRL - Play Application" << std::endl;
-    core::init();
 
     // Load the agent before opening a window so a bad path fails fast.
     std::unique_ptr<rl_dqn::DQNAgent> agent;

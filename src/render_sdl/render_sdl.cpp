@@ -164,7 +164,9 @@ void Renderer::render_background() {
     
     // Ground (brown)
     SDL_SetRenderDrawColor(renderer_, 139, 69, 19, 255);
-    SDL_Rect ground = {0, world_to_screen_y(0.0f), config_.window_width, 20};
+    // world_to_screen_y(0) == window_height, i.e. just off-screen, so draw the
+    // strip upward from the bottom edge (mirrors the ceiling strip at the top).
+    SDL_Rect ground = {0, world_to_screen_y(0.0f) - 20, config_.window_width, 20};
     SDL_RenderFillRect(renderer_, &ground);
     
     // Ceiling
