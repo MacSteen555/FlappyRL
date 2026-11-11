@@ -53,6 +53,11 @@ namespace env_flappy {
 
     class FlappyEnv {
         public:
+            // Pipe center x and gap center y, in world units
+            struct Pipe { float x; float gap_y; };
+
+            // Bird's fixed horizontal position in world units
+            static constexpr float kBirdX = 0.20f;
 
             explicit FlappyEnv(std::uint64_t seed, const Config& config = Config())
                 : config_(config), rng_(static_cast<std::mt19937::result_type>(seed)) { reset(seed); }
@@ -64,6 +69,9 @@ namespace env_flappy {
             bool done()  const noexcept { return done_; }
             int  steps() const noexcept { return steps_; }
             const Config& config() const noexcept { return config_; }
+            float bird_y()  const noexcept { return y_; }
+            float bird_vy() const noexcept { return vy_; }
+            const std::vector<Pipe>& pipes() const noexcept { return pipes_; }
 
 #ifdef FLAPPY_ENV_TESTING
             // Test-only hooks (compile only in tests)
@@ -76,9 +84,6 @@ namespace env_flappy {
 #endif
 
         private:
-            // constants
-            static constexpr float kBirdX = 0.20f;
-            
             // config & rng
             Config config_;
             std::mt19937 rng_;
@@ -89,7 +94,6 @@ namespace env_flappy {
             float vy_ = 0.0f;
             
             // pipes
-            struct Pipe { float x; float gap_y; };
             std::vector<Pipe> pipes_;
             std::size_t current_pipe_idx_ = 0;
             

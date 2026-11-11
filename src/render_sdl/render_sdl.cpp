@@ -68,6 +68,8 @@ bool Renderer::initialize(const RenderConfig& config) {
 
 void Renderer::shutdown() {
 #ifdef HAVE_SDL2
+    // Idempotent: the destructor calls this too, and SDL_Quit must run once.
+    if (!initialized_) return;
     if (previous_keyboard_state_) {
         delete[] previous_keyboard_state_;
         previous_keyboard_state_ = nullptr;
@@ -92,10 +94,12 @@ void Renderer::poll_events() {
         std::memcpy(previous_keyboard_state_, keyboard_state_, num_keys_);
     }
     
+    // Polling removes SDL_QUIT from the queue, so remember it here;
+    // should_close() cannot find it with SDL_PeepEvents afterwards.
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
-            // Handle quit in should_close()
+            quit_requested_ = true;
         }
     }
     // Update keyboard state
@@ -105,8 +109,7 @@ void Renderer::poll_events() {
 
 bool Renderer::should_close() const {
 #ifdef HAVE_SDL2
-    SDL_Event e;
-    if (SDL_PeepEvents(&e, 1, SDL_PEEKEVENT, SDL_QUIT, SDL_QUIT) > 0) {
+    if (quit_requested_) {
         return true;
     }
     // Also check for ESC or Q key
@@ -141,8 +144,8 @@ bool Renderer::is_key_just_pressed(int key_code) const {
 }
 
 int Renderer::world_to_screen_x(float world_x) const {
-    // Bird is at kBirdX (0.20), center it in view
-    float offset_x = 0.20f;  // kBirdX
+    // Bird is at kBirdX, center it in view
+    float offset_x = env_flappy::FlappyEnv::kBirdX;
     float normalized_x = (world_x - offset_x) * 2.0f + 0.5f;  // Center bird
     return static_cast<int>(normalized_x * config_.scale_x);
 }
@@ -173,8 +176,7 @@ void Renderer::render_background() {
 
 void Renderer::render_bird(float y, float vy) {
 #ifdef HAVE_SDL2
-    const float kBirdX = 0.20f;
-    int bird_x = world_to_screen_x(kBirdX);
+    int bird_x = world_to_screen_x(env_flappy::FlappyEnv::kBirdX);
     int bird_y = world_to_screen_y(y);
     
     // Bird is a yellow circle
@@ -238,23 +240,16 @@ void Renderer::render(const env_flappy::FlappyEnv& env) {
 
 #ifdef HAVE_SDL2
     render_background();
-    
-    // Get current observation
-    auto obs = env.observe();
-    
-    // Render bird
-    render_bird(obs.y, obs.vy);
-    
-    // Render current pipe based on observation
+
+    // Draw every pipe the env tracks (not just the current one), so upcoming
+    // pipes scroll in from the right instead of popping into existence.
     const auto& config = env.config();
-    if (obs.dx_to_pipe < 2.0f && obs.dx_to_pipe > -0.5f) {  // Only render if pipe is nearby
-        // Bird is at fixed x = 0.20, so pipe x = bird_x + dx_to_pipe
-        const float kBirdX = 0.20f;
-        float pipe_x = kBirdX + obs.dx_to_pipe;
-        float gap_y = obs.y + obs.dy_to_gap;
-        render_pipe(pipe_x, gap_y, config.pipe_width, config.pipe_gap, config.world_height);
+    for (const auto& pipe : env.pipes()) {
+        render_pipe(pipe.x, pipe.gap_y, config.pipe_width, config.pipe_gap, config.world_height);
     }
-    
+
+    render_bird(env.bird_y(), env.bird_vy());
+
     present();
 #endif
 }

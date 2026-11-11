@@ -50,6 +50,7 @@ public:
 
 private:
     bool initialized_ = false;
+    bool quit_requested_ = false;  // set when SDL_QUIT (window X) is polled
     RenderConfig config_;
 
 #ifdef HAVE_SDL2
